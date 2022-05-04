@@ -19,12 +19,14 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] Rigidbody2D rb;
 
     private GlobalActions actions;
-    [SerializeField] private int jumpCount;
+    private PlayerAnimations anim;
+    private int jumpCount;
     private IEnumerator timerInAir;
 
     // Start is called before the first frame update
     void Start()
     {
+        anim = GetComponent<PlayerAnimations>();
         actions = new GlobalActions();
         actions.Enable();
         jumpCount = maxJump;
@@ -32,8 +34,29 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        rb.velocity = new Vector2(speed * actions.Player.Movement.ReadValue<float>(), rb.velocity.y);
+        Movement();
+        CheckJump();
+    }
 
+    void Movement()
+    {
+        float hspd = speed * actions.Player.Movement.ReadValue<float>();
+        rb.velocity = new Vector2(hspd, rb.velocity.y);
+        anim.ExecuteAnimMove(hspd);
+
+        Flip(hspd);
+    }
+
+    void Flip(float hspd)
+    {
+        if (hspd != 0)
+        {
+            transform.localScale = new Vector3(Mathf.Sign(hspd), 1, 0);
+        }
+    }
+
+    void CheckJump()
+    {
         if (actions.Player.Jump.triggered && jumpCount < maxJump)
         {
             Jump();
@@ -42,6 +65,7 @@ public class PlayerMovement : MonoBehaviour
 
     void Jump()
     {
+        anim.ExecuteAnimJump(true);
         if (rb.velocity.y <=0)
             rb.velocity = new Vector2(rb.velocity.x, jumpForce);
         else
@@ -60,6 +84,7 @@ public class PlayerMovement : MonoBehaviour
                     StopCoroutine(timerInAir);
                     timerInAir = null;
                 }
+                anim.ExecuteAnimJump(false);
                 jumpCount = 0;
             }
         }
@@ -67,11 +92,14 @@ public class PlayerMovement : MonoBehaviour
 
     void OnCollisionExit2D(Collision2D other)
     {
-        var ray = Physics2D.Raycast(transform.position, Vector2.down, distance, groundLayer);
-        if (jumpCount == 0 && ray.collider == null)
+        if (other.gameObject.layer == groundLayer)
         {
-            this.timerInAir = TimeInAir();
-            StartCoroutine(timerInAir);
+            var ray = Physics2D.Raycast(transform.position, Vector2.down, distance, groundLayer);
+            if (jumpCount == 0 && ray.collider == null)
+            {
+                this.timerInAir = TimeInAir();
+                StartCoroutine(timerInAir);
+            }
         }
     }
 
@@ -82,6 +110,6 @@ public class PlayerMovement : MonoBehaviour
     }
 
     private void OnDrawGizmosSelected() {
-        Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, distance, 0));
+        Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, -distance, 0));
     }
 }
